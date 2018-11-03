@@ -3,7 +3,9 @@ pragma solidity ^0.4.5;
 contract Theatre {
     enum ShowType { morning, afternoon, evening, night } //4 shows each day
     enum SurpriseType { none, water, soda }
-    
+    event MovieEvent(address sender, string eventType, string movie);
+    event TicketEvent(address sender, string eventType, uint8 ticket_no);
+
     struct Ticket {
         //below information will be printed on ticket, and can be later varified against a request for same
         uint ticketId;                          //this can be later changed to hold any uuid or other unique number
@@ -29,9 +31,9 @@ contract Theatre {
     struct Show {
         ShowType showType;
         uint8 tickets;                          //for early bird and/or same offer
-        mapping (string => Screen) screens;       //no of screens
-    }
-    
+        
+    } 
+
     string[] public movies;
     string public theatre_name;                 //theatre name
     string public theatre_location;             //theatre address
@@ -45,6 +47,7 @@ contract Theatre {
     uint8  seat_capacity;                //seat capacity in each screen/room
     uint8  earlyBirdCounts;              //soda quantity in each show
     uint8  windows;                      //available windows
+    mapping (string => Screen) screens;       //no of screens
     
     constructor(string theatrename, string loc) public {
         theatre_name = theatrename;
@@ -56,8 +59,13 @@ contract Theatre {
         windows = 4;                            //we have 4 windows right now
     }
     
+    modifier validTicket(uint8 tno) {
+        require(ticketCntr >= tno, "This ticket is not valid.");
+        _;
+    }
+
     modifier seatsAvailable(string movie) {
-        require(currentShow.screens[movie].seats < 100, "We are full right now, please try in next show");
+        require(screens[movie].seats < 100, "We are full right now, please try in next show");
         _;
     }
 
@@ -71,27 +79,31 @@ contract Theatre {
         _;
     }
 
-    function addMovie(string movie) public canAddMovie returns (bool) {
+    function addMovie(string movie) public canAddMovie {
         movies.push(movie);
-        return true;
+        emit MovieEvent(msg.sender,"added", movie);
     }
 
     function createNewShow() public {
-        Show storage show = shows[++showCntr];
-        for(uint8 movieIndex; movieIndex < movie_capacity; movieIndex++) {
-            string storage tempMovie = movies[movieIndex];
-            show.screens[tempMovie] = Screen(tempMovie, seat_capacity);
-        }
+        Show memory show = Show({
+            showType: ShowType.morning,
+            tickets: 0
+        });
+        shows[showCntr++] = show;
         currentShow = show;
+        for(uint8 movieIndex; movieIndex < movies.length; movieIndex++) {
+            string storage tempMovie = movies[movieIndex];
+            screens[tempMovie] = Screen(tempMovie, 0);
+        }
     }
 
     function bookTicket(string movie, uint8 window, ShowType show, string cname, string cphone, uint8 persons) public 
         seatsAvailable(movie)
         validWindow(window)
-        returns (bool) {
-  
+        returns (uint8) {
+            
         Ticket memory ticket = Ticket({
-            ticketId: ++ticketCntr,
+            ticketId: ticketCntr,
             showType: show,
             customer_name: cname,
             customer_phone: cphone,
@@ -109,8 +121,20 @@ contract Theatre {
             //early bird offer eligible for first 200 customers
             ticket.surpriseExchangeEligible = true;
         }
+        screens[movie].seats += persons;
         currentShow.tickets++;
         tickets[ticketCntr] = ticket;
+        uint8 tempTicket = ticketCntr++;
+        emit TicketEvent(msg.sender, 'booked', tempTicket);
+        return tempTicket;
+    }
+    
+    function getTicket(uint8 tno) public 
+        validTicket(tno) 
+        view 
+        returns (string, string, ShowType, string, uint8, uint8) {
+            Ticket storage temp = tickets[tno];
+        return (temp.customer_name, temp.customer_phone, temp.showType, temp.movie_name, temp.personCount, temp.totalAmount);
     }
     
     function claimSurprise(uint8 window, uint8 ticketNo) public returns (string){

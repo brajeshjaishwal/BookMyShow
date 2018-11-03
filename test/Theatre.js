@@ -1,4 +1,6 @@
 var Theatre = artifacts.require('Theatre')
+const assert = require("chai").assert;
+const truffleAssert = require('truffle-assertions');
 /*
 1. Four (4) ticketing windows sell movie tickets at a theatre
 2. People can buy one or more tickets
@@ -23,24 +25,26 @@ contract('Theatre', async(accounts) => {
     assert.equal(await _theatre.theatre_location(), 'First location', 'Should be First location')
   }),
   it('Check add movie', async() => {
-    let result
-    result = await _theatre.addMovie('First Movie')
-    console.log(result)
-    assert.isTrue( result, 'Should be First Movie')
+    let tx = await _theatre.addMovie('First Movie')
+    truffleAssert.eventEmitted(tx, 'MovieEvent')
+    //truffleAssert.eventEmitted(tx, 'MovieEvent', (ev) => {
+    //  console.log(ev.Movie)
+    //})
+  }),
+  it('Check book ticket successful', async() => {
+    await _theatre.addMovie('Second Movie')
+    await _theatre.addMovie('Third Movie')
+    await _theatre.addMovie('Fourth Movie')
+    await _theatre.addMovie('Fifth Movie')
 
-    result = await _theatre.addMovie('Second Movie')
-    assert.isTrue( result, 'Should be First Movie')
+    await _theatre.createNewShow()
 
-    result = await _theatre.addMovie('Third Movie')
-    assert.isTrue( result, 'Should be First Movie')
-
-    result = await _theatre.addMovie('Fourth Movie')
-    assert.equal( result, 'Fourth Movie', 'Should be First Movie')
-
-    result = await _theatre.addMovie('Fifth Movie')
-    assert.equal( result, 'Fifth Movie', 'Should be First Movie')
-
-    result = await _theatre.addMovie('Sixth Movie')
-    assert.equal( result, 'We cannot add more movie', 'Should not add more movie')
+    tx = await _theatre.bookTicket("First Movie","2","2","brajesh jaishwal","9413844898","3")
+    truffleAssert.eventEmitted(tx, 'TicketEvent')
+    //truffleAssert.eventEmitted(tx, 'TicketEvent', (ev) => {
+    //  console.log(ev.Movie)
+    //})
+    let ticket = await _theatre.getTicket(0)
+    assert.equal(ticket.customer_name, "brajesh jaishwal", "Customer should be brajesh jaishwal")
   })
 });
