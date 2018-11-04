@@ -1,6 +1,6 @@
 var Theatre = artifacts.require('Theatre')
-const assert = require("chai").assert;
-const truffleAssert = require('truffle-assertions');
+const assert = require('chai').assert
+const truffleAssert = require('truffle-assertions')
 /*
 1. Four (4) ticketing windows sell movie tickets at a theatre
 2. People can buy one or more tickets
@@ -25,26 +25,42 @@ contract('Theatre', async(accounts) => {
     assert.equal(await _theatre.theatre_location(), 'First location', 'Should be First location')
   }),
   it('Check add movie', async() => {
-    let tx = await _theatre.addMovie('First Movie')
+    let tx
+    tx = await _theatre.addMovie('First Movie')
     truffleAssert.eventEmitted(tx, 'MovieEvent')
-    //truffleAssert.eventEmitted(tx, 'MovieEvent', (ev) => {
-    //  console.log(ev.Movie)
-    //})
+    tx = await _theatre.addMovie('Second Movie')
+    truffleAssert.eventEmitted(tx, 'MovieEvent')
+    tx = await _theatre.addMovie('Third Movie')
+    truffleAssert.eventEmitted(tx, 'MovieEvent')
+    tx = await _theatre.addMovie('Fourth Movie')
+    truffleAssert.eventEmitted(tx, 'MovieEvent')
+    tx = await _theatre.addMovie('Fifth Movie')
+    truffleAssert.eventEmitted(tx, 'MovieEvent')
+    await truffleAssert.reverts(_theatre.addMovie('Sixth Movie'))
+  }),
+  it('Check create new show', async() => {
+    await _theatre.createNewShow()
   }),
   it('Check book ticket successful', async() => {
-    await _theatre.addMovie('Second Movie')
-    await _theatre.addMovie('Third Movie')
-    await _theatre.addMovie('Fourth Movie')
-    await _theatre.addMovie('Fifth Movie')
-
-    await _theatre.createNewShow()
-
-    tx = await _theatre.bookTicket("First Movie","2","2","brajesh jaishwal","9413844898","3")
-    truffleAssert.eventEmitted(tx, 'TicketEvent')
-    //truffleAssert.eventEmitted(tx, 'TicketEvent', (ev) => {
-    //  console.log(ev.Movie)
-    //})
+    let result = await _theatre.bookTicket("First Movie","2","2","brajesh jaishwal","9413844898","3")
+    truffleAssert.eventEmitted(result, 'TicketEvent', 
+                              args => args.eventType === 'booked',
+                              'TicketEvent should be emitted with booked result')
     let ticket = await _theatre.getTicket(0)
-    assert.equal(ticket.customer_name, "brajesh jaishwal", "Customer should be brajesh jaishwal")
+    assert.equal(ticket.customer, "brajesh jaishwal", "Customer should be brajesh jaishwal")
+  }),
+  it('Check claim surprise', async() => {
+    let tx
+    tx = await _theatre.claimSurprise(1, 0)
+    truffleAssert.eventEmitted(tx, 'SurpriseEvent',
+                              args => args.eventType === 'claimed',
+                              'SurpriseEvent should be emitted with claimed result')
+  }),
+  it('Check exchange soda', async() => {
+    let tx
+    tx = await _theatre.exchangeSurprise(0)
+    truffleAssert.eventEmitted(tx, 'SurpriseEvent', 
+                              args => args.eventType === 'claimed',
+                              'SurpriseEvent should be emitted with claimed result')
   })
 });

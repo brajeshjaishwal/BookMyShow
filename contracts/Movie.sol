@@ -5,6 +5,8 @@ contract Theatre {
     enum SurpriseType { none, water, soda }
     event MovieEvent(address sender, string eventType, string movie);
     event TicketEvent(address sender, string eventType, uint8 ticket_no);
+    event ShowEvent(address sender, string eventType, uint8 show_id);
+    event SurpriseEvent(address sender, string eventType, string surprise);
 
     struct Ticket {
         //below information will be printed on ticket, and can be later varified against a request for same
@@ -79,12 +81,15 @@ contract Theatre {
         _;
     }
 
-    function addMovie(string movie) public canAddMovie {
+    function addMovie(string movie) public canAddMovie returns(string movieid) {
+        movieid = movie;
         movies.push(movie);
         emit MovieEvent(msg.sender,"added", movie);
+        return movieid;
     }
 
-    function createNewShow() public {
+    function createNewShow() public returns (uint8 show_id){
+        show_id = showCntr;
         Show memory show = Show({
             showType: ShowType.morning,
             tickets: 0
@@ -95,13 +100,14 @@ contract Theatre {
             string storage tempMovie = movies[movieIndex];
             screens[tempMovie] = Screen(tempMovie, 0);
         }
+        emit ShowEvent(msg.sender, "created", show_id);
     }
 
     function bookTicket(string movie, uint8 window, ShowType show, string cname, string cphone, uint8 persons) public 
         seatsAvailable(movie)
         validWindow(window)
-        returns (uint8) {
-            
+        returns (uint8 ticketid) {
+        ticketid = ticketCntr;
         Ticket memory ticket = Ticket({
             ticketId: ticketCntr,
             showType: show,
@@ -125,19 +131,20 @@ contract Theatre {
         currentShow.tickets++;
         tickets[ticketCntr] = ticket;
         uint8 tempTicket = ticketCntr++;
-        emit TicketEvent(msg.sender, 'booked', tempTicket);
+        emit TicketEvent(msg.sender, "booked", tempTicket);
         return tempTicket;
     }
     
     function getTicket(uint8 tno) public 
         validTicket(tno) 
         view 
-        returns (string, string, ShowType, string, uint8, uint8) {
-            Ticket storage temp = tickets[tno];
+        returns (string customer, string phone, ShowType show, string movie, uint8 persons, uint8 amount) 
+    {
+        Ticket storage temp = tickets[tno];
         return (temp.customer_name, temp.customer_phone, temp.showType, temp.movie_name, temp.personCount, temp.totalAmount);
     }
     
-    function claimSurprise(uint8 window, uint8 ticketNo) public returns (string){
+    function claimSurprise(uint8 window, uint8 ticketNo) public returns (string message){
         //customer will come to window 1 and collect water bottle and popcorn
         //this method will be called by window manager, who would scan the ticket
         //and after scanning, he can enter ticket detail and verify ticket validity
@@ -145,7 +152,7 @@ contract Theatre {
         require(window == 1, "please collect these at window 1.");
         Ticket storage ticket = tickets[ticketNo];
         if(ticket.surpriseCollected) {
-            return "Our system is showing that we have already served you, sir.";
+            message = "Our system is showing that we have already served you, sir.";
         } 
         else {
             //offer water bottle and pop corn to customer and mark the field
@@ -153,20 +160,21 @@ contract Theatre {
             //soda exchange logic
             //lets take the ticket no as a random number 
             ticket.surpriseExchangeEligible = (ticketNo % 2 == 0);
-            return "We are happy to serve you";
+            message = "We are happy to serve you";
         }
+        emit SurpriseEvent(msg.sender, "claimed", message);
     }
 
-    function exchangeSurprise(uint8 ticketNo) public returns (string) {
+    function exchangeSurprise(uint8 ticketNo) public returns (string message) {
         //customer will come to cafeteria and get the water exchanged for soda
         //this method will be called by cafeteria manager, who would scan the ticket
         //and after scanning, he can enter ticket detail and verify ticket validity
         //here we are passing ticket no for simplicity.
         Ticket storage ticket = tickets[ticketNo];
         if(ticket.surpriseExchanged) {
-            return "Our system is showing that we have already served you, sir.";
+            message = "Our system is showing that we have already served you, sir.";
         } else if (!ticket.surpriseExchangeEligible) {
-            return "You are not eligible for this offer";
+            message = "You are not eligible for this offer";
         }
         else {
             //offer soda and mark the field
@@ -174,8 +182,9 @@ contract Theatre {
             //soda exchange logic
             //lets take the ticket no as a random number 
             ticket.surpriseExchanged = true;
-            return "We are happy to serve you";
+            message = "We are happy to serve you";
         }
+        emit SurpriseEvent(msg.sender, "claimed", message);
     }
 }
 
